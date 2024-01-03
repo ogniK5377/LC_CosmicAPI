@@ -27,7 +27,8 @@ namespace LC_CosmicAPI.Game
 			for (int i = 0; i < transform.childCount; i++)
 			{
 				var child = transform.GetChild(i);
-				if (GetFirstWithName(child, name) != null) return child;
+				var t = child.GetFirstWithName(name);
+				if (t != null) return t;
 			}
 			return null;
 		}

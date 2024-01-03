@@ -4,6 +4,8 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 using Unity.Netcode;
+using System.Reflection;
+using LC_CosmicAPI.Util;
 
 namespace LC_CosmicAPI.Game
 {
@@ -12,22 +14,17 @@ namespace LC_CosmicAPI.Game
 		private static Dictionary<string, AssetBundle> Bundles = new();
 		private static Dictionary<string, UnityEngine.Object> LoadedAssets = new();
 
-		private static string AssetBundlePath(string assetBundleSm, string path)
+		private static string AssetBundlePath(Assembly assembly, string assetBundleSm, string path)
 		{
-			(string pluginName, string assetBundle) = GetPluginAndBundleFromBundle(assetBundleSm);
+			(string pluginName, string assetBundle) = GetPluginAndBundleFromBundle(assembly, assetBundleSm);
 			return pluginName + '|' + assetBundle + ":/" + path;
 		}
 
-		private static string AssetBundlePath(string pluginName, string assetBundle, string path)
-		{
-			return pluginName + '|' + assetBundle + ":/" + path;
-		}
-
-		private static (string, string) GetPluginAndBundleFromBundle(string bundleName)
+		private static (string, string) GetPluginAndBundleFromBundle(Assembly assembly, string bundleName)
 		{
 			if (!bundleName.Contains('|'))
 			{
-				return (Util.Module.PluginName, bundleName);
+				return (Util.Module.GetPluginName(assembly), bundleName);
 			}
 			else
 			{
@@ -36,11 +33,18 @@ namespace LC_CosmicAPI.Game
 			}
 		}
 
-		private static string GetProperBundleName(string bundleName)
+		private static string GetBundleFilename(string bundleName)
+		{
+			if (!bundleName.Contains('|'))
+				return bundleName;
+			return bundleName.Split('|')[1];
+		}
+
+		private static string GetProperBundleName(Assembly assembly, string bundleName)
 		{
 			if (!bundleName.Contains('|'))
 			{
-				(string plugin, string bundle) = GetPluginAndBundleFromBundle(bundleName);
+				(string plugin, string bundle) = GetPluginAndBundleFromBundle(assembly, bundleName);
 				return plugin + '|' + bundle;
 			}
 			return bundleName;
@@ -62,7 +66,60 @@ namespace LC_CosmicAPI.Game
 				throw new Exception($"Invalid path specified, expecting bundle:/Path/within/bundle");
 			}
 
-			return LoadAsset<T>(splitStr[0], splitStr[1]);
+			return LoadAssetInternal<T>(splitStr[0], splitStr[1], Assembly.GetCallingAssembly());
+		}
+
+		private static T LoadAssetInternal<T>(string bundleName, string path, Assembly assembly) where T : UnityEngine.Object
+		{
+			if (bundleName == null) throw new FileNotFoundException($"No bundle name provided");
+			path = path.ToLower();
+
+			bundleName = GetProperBundleName(assembly, bundleName);
+			var pathToBundle = AssetBundlePath(assembly, bundleName, path);
+			if (LoadedAssets.TryGetValue(pathToBundle, out var cachedAsset))
+			{
+				return cachedAsset as T;
+			}
+
+			var bundleFileName = GetBundleFilename(bundleName);
+
+			if (Bundles.TryGetValue(bundleName, out var preloadedBundle))
+			{
+				// We already loaded the bundle, lets see if we can fetch the object
+				var obj = preloadedBundle.LoadAsset<T>(path);
+				if (obj == null) throw new FileNotFoundException($"Failed to find file {path} in bundle {bundleFileName}");
+
+				// Found it, lets cache it!
+				LoadedAssets[pathToBundle] = obj;
+				return obj as T;
+			}
+			// We haven't loaded our bundle yet! Lets load it and try again
+			var bundlePath = Path.Combine(Util.Module.GetPluginDir(assembly), "CosmicBundles", bundleFileName);
+			var bundle = AssetBundle.LoadFromFile(bundlePath);
+			if (bundle == null) throw new FileNotFoundException($"Failed to find bundle {bundleFileName}");
+
+			Bundles[bundleName] = bundle;
+
+			var objNew = bundle.LoadAsset<T>(path);
+			if (objNew == null) throw new FileNotFoundException($"Failed to find file {path} in bundle {bundleFileName}");
+			LoadedAssets[pathToBundle] = objNew;
+			return objNew as T;
+		}
+
+		private static bool UnloadAssetInternal<T>(string bundleName, string path, Assembly assembly) where T : UnityEngine.Object
+		{
+			if (bundleName == null) throw new FileNotFoundException($"No bundle name provided");
+			path = path.ToLower();
+
+			bundleName = GetProperBundleName(assembly, bundleName);
+			var pathToBundle = AssetBundlePath(assembly, bundleName, path);
+
+			// Nothing removed
+			if (!LoadedAssets.ContainsKey(pathToBundle))
+				return false;
+
+			LoadedAssets.Remove(pathToBundle);
+			return true;
 		}
 
 		/// <summary>
@@ -75,37 +132,7 @@ namespace LC_CosmicAPI.Game
 		/// <exception cref="FileNotFoundException">Failed to find asset or load it!</exception>
 		public static T LoadAsset<T>(string bundleName, string path) where T : UnityEngine.Object
 		{
-			if (bundleName == null) throw new FileNotFoundException($"No bundle name provided");
-			path = path.ToLower();
-
-			bundleName = GetProperBundleName(bundleName);
-			var pathToBundle = AssetBundlePath(bundleName, path);
-			if (LoadedAssets.TryGetValue(pathToBundle, out var cachedAsset))
-			{
-				return cachedAsset as T;
-			}
-
-			if (Bundles.TryGetValue(bundleName, out var preloadedBundle))
-			{
-				// We already loaded the bundle, lets see if we can fetch the object
-				var obj = preloadedBundle.LoadAsset<T>(path);
-				if (obj == null) throw new FileNotFoundException($"Failed to find file {path} in bundle {bundleName}");
-
-				// Found it, lets cache it!
-				LoadedAssets[pathToBundle] = obj;
-				return obj as T;
-			}
-			// We haven't loaded our bundle yet! Lets load it and try again
-			var bundlePath = Path.Combine(Plugin.PluginPath, "Bundles", bundleName);
-			var bundle = AssetBundle.LoadFromFile(bundlePath);
-			if (bundle == null) throw new FileNotFoundException($"Failed to find bundle {bundleName}");
-
-			Bundles[bundleName] = bundle;
-
-			var objNew = bundle.LoadAsset<T>(path);
-			if (objNew == null) throw new FileNotFoundException($"Failed to find file {path} in bundle {bundleName}");
-			LoadedAssets[pathToBundle] = objNew;
-			return objNew as T;
+			return LoadAssetInternal<T>(bundleName, path, Assembly.GetCallingAssembly());
 		}
 
 		/// <summary>
@@ -118,18 +145,7 @@ namespace LC_CosmicAPI.Game
 		/// <exception cref="FileNotFoundException"></exception>
 		public static bool UnloadAsset<T>(string bundleName, string path) where T : UnityEngine.Object
 		{
-			if (bundleName == null) throw new FileNotFoundException($"No bundle name provided");
-			path = path.ToLower();
-
-			bundleName = GetProperBundleName(bundleName);
-			var pathToBundle = AssetBundlePath(bundleName, path);
-
-			// Nothing removed
-			if (!LoadedAssets.ContainsKey(pathToBundle))
-				return false;
-
-			LoadedAssets.Remove(pathToBundle);
-			return true;
+			return UnloadAssetInternal<T>(bundleName, path, Assembly.GetCallingAssembly());
 		}
 
 		/// <summary>
@@ -147,7 +163,7 @@ namespace LC_CosmicAPI.Game
 			{
 				throw new Exception($"Invalid path specified, expecting bundle:/Path/within/bundle");
 			}
-			return UnloadAsset<T>(splitStr[0], splitStr[1]);
+			return UnloadAssetInternal<T>(splitStr[0], splitStr[1], Assembly.GetCallingAssembly());
 		}
 	}
 }

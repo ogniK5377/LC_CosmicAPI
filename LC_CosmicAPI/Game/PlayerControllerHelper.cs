@@ -1,6 +1,8 @@
 ﻿using GameNetcodeStuff;
+using LC_CosmicAPI.Util;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using UnityEngine;
@@ -35,36 +37,55 @@ namespace LC_CosmicAPI.Game
 		public Transform LocalItemTransform => PlayerController.localItemHolder;
 		public Transform ServerItemTransform => PlayerController.serverItemHolder;
 
-		public GameObject AnimatorObject => IsAlive ? PlayerController.playerBodyAnimator.gameObject : DeadBody.GetComponent<SkinnedMeshRenderer>().rootBone.gameObject;
+		public GameObject AnimatorObject => !IsCosmeticCharacter ? (IsAlive ? 
+			PlayerController.playerBodyAnimator.gameObject : 
+			DeadBody.GetComponent<SkinnedMeshRenderer>().rootBone.gameObject) :
+			GetComponentInChildren<Animator>().gameObject;
 		public int PlayerObjectID => IsAlive ? (int)PlayerController.playerClientId : DeadBody.playerObjectId;
-		public int LODCount => IsAlive ? 3 : 1;
+		public int LODCount => (IsAlive || IsCosmeticCharacter) ? 3 : 1;
 		public SkinnedMeshRenderer PrimaryLOD => IsAlive ? PlayerController.thisPlayerModel : DeadBody.gameObject.GetComponent<SkinnedMeshRenderer>();
 
 		public int SuitID => PlayerController.currentSuitID;
 		public Material SuitMaterial => StartOfRound.Instance.unlockablesList.unlockables[SuitID].suitMaterial;
-
+		public ulong NetworkID => PlayerController.actualClientId;
 		public ulong SteamID => PlayerController.playerSteamId;
+		
+		// More company cosmetic viewer
+		public bool IsCosmeticCharacter => PlayerController == null && DeadBody == null;
 
 		private bool _isLocalPlayer = false;
 		private int LastSuitID = 0;
 		private ulong _lastSteamId = 0;
 
-		public bool IsDead => DeadBody != null;
-		public bool IsAlive => !IsDead;
+		private static MethodInfo CheckConditionsForEmote = typeof(PlayerControllerB).GetMethod("CheckConditionsForEmote", BindingFlags.NonPublic);
+
+		public bool CanPerformEmote => CheckConditionsForEmote?.Invoke(PlayerController, null) is bool && !PlayerController.performingEmote;
+
+		public bool IsDead => DeadBody != null && !IsCosmeticCharacter;
+		public bool IsAlive => !IsDead && !IsCosmeticCharacter;
 		public bool LocalPlayer => _isLocalPlayer;
 
-		public event Action<int, Material> OnSuitChanged;
+		public delegate bool OnDeadBodySpawnDelegate(DeadBodyInfo deadBodyInfo);
+		public delegate bool UpdateDeadBodyEnableDelegate(DeadBodyInfo deadBodyInfo, bool setActive);
+		public delegate bool UpdatePlayerModelEnabledDelegate(bool setActive);
+		public delegate bool UpdatePlayerModelArmsEnabledDelegate(bool setActive);
+		public delegate void OnSuitChangedDelegate(int suitId, Material suitMaterial);
+		public delegate void SteamIDUpdatedDelegate(ulong steamId);
+
+
+		public event OnSuitChangedDelegate OnSuitChanged;
 		public event Action OnPlayerSpawned;
 		public event Action OnPlayerDestroy;
-		public event Func<bool, bool> UpdatePlayerModelEnabled;
-		public event Func<bool, bool> UpdatePlayerModelArmsEnabled;
+		public event UpdatePlayerModelEnabledDelegate UpdatePlayerModelEnabled;
+		public event UpdatePlayerModelArmsEnabledDelegate UpdatePlayerModelArmsEnabled;
 		public event Action OnSpawnPlayerAnimator;
 
-		public event Func<DeadBodyInfo, bool> OnDeadBodySpawn;
-		public event Func<DeadBodyInfo, bool, bool> UpdateDeadBodyEnable;
-		public event Action<ulong> SteamIDUpdated;
+		public event OnDeadBodySpawnDelegate OnDeadBodySpawn;
+		public event UpdateDeadBodyEnableDelegate UpdateDeadBodyEnable;
+		public event SteamIDUpdatedDelegate SteamIDUpdated;
 
 		private Dictionary<string, GameObject> _boneCache = new();
+
 
 		public GameObject GetBoneFromName(string name)
 		{
@@ -72,10 +93,11 @@ namespace LC_CosmicAPI.Game
 				return cachedBone;
 
 			var baseModel = PlayerGameObject.transform.GetFirstWithName("spine");
+
 			var child = baseModel.GetFirstWithName(name);
 			if (child != null)
 			{
-				_boneCache[name] = baseModel.GetFirstWithName(name).gameObject;
+				_boneCache[name] = child.gameObject;
 			}
 			else
 			{
@@ -113,6 +135,13 @@ namespace LC_CosmicAPI.Game
 			return helper;
 		}
 
+		public static ControllerHelper GetHelperFromPlayerId(int playerId)
+		{
+			var playerObject = GetControllerFromPlayerID(playerId);
+			if (playerObject == null) return null;
+			return playerObject.GetComponent<ControllerHelper>();
+		}
+
 		private void HandleSuitChange()
 		{
 			if (PlayerController == null) return;
@@ -127,14 +156,10 @@ namespace LC_CosmicAPI.Game
 
 		public bool SpawnDeadBodyEv(DeadBodyInfo deadBodyInfo)
 		{
-			Plugin.Log.LogDebug($"Hello i am {SteamID} and {PlayerObjectID}");
 			if (OnDeadBodySpawn == null) return false;
-			Plugin.Log.LogDebug(deadBodyInfo);
-			Plugin.Log.LogDebug(OnDeadBodySpawn);
 			bool wasAnyTrue = false;
-			foreach (Func<DeadBodyInfo, bool> f in OnDeadBodySpawn?.GetInvocationList())
+			foreach (OnDeadBodySpawnDelegate f in OnDeadBodySpawn?.GetInvocationList())
 			{
-				Plugin.Log.LogDebug("iter");
 				wasAnyTrue |= f.Invoke(deadBodyInfo);
 			}
 			return wasAnyTrue;
@@ -143,7 +168,7 @@ namespace LC_CosmicAPI.Game
 		{
 			if (UpdateDeadBodyEnable == null) return false;
 			bool wasAnyTrue = false;
-			foreach (Func<DeadBodyInfo, bool, bool> f in UpdateDeadBodyEnable?.GetInvocationList())
+			foreach (UpdateDeadBodyEnableDelegate f in UpdateDeadBodyEnable?.GetInvocationList())
 				wasAnyTrue |= f.Invoke(deadBodyInfo, setActive);
 			return wasAnyTrue;
 		}
@@ -156,13 +181,13 @@ namespace LC_CosmicAPI.Game
 			bool wasAnyTrue = false;
 			if (UpdatePlayerModelEnabled != null)
 			{
-				foreach (Func<bool, bool> f in UpdatePlayerModelEnabled?.GetInvocationList())
+				foreach (UpdatePlayerModelEnabledDelegate f in UpdatePlayerModelEnabled?.GetInvocationList())
 					wasAnyTrue |= f.Invoke(newState);
 			}
 
 			if (disableArms != null && UpdatePlayerModelArmsEnabled != null)
 			{
-				foreach (Func<bool, bool> f in UpdatePlayerModelArmsEnabled?.GetInvocationList())
+				foreach (UpdatePlayerModelArmsEnabledDelegate f in UpdatePlayerModelArmsEnabled?.GetInvocationList())
 					wasAnyTrue |= f.Invoke(disableArms.Value);
 			}
 			return wasAnyTrue;
@@ -173,16 +198,44 @@ namespace LC_CosmicAPI.Game
 			OnSpawnPlayerAnimator?.Invoke();
 		}
 
+		private static List<Type> TypeCache = null;
+
 		private void Start()
 		{
-			Plugin.Log.LogDebug("Controller Helper Init");
 			PlayerController = GetComponent<PlayerControllerB>();
 			DeadBody = GetComponent<DeadBodyInfo>();
 
-			if (IsDead) PlayerController = DeadBody.playerScript;
-			_isLocalPlayer = (PlayerController.IsOwner && PlayerController.isPlayerControlled) && (!PlayerController.IsServer || PlayerController.isHostPlayerObject) || PlayerController.isTestingPlayer;
+			if(!IsCosmeticCharacter)
+			{
+				if (IsDead) PlayerController = DeadBody.playerScript;
+				_isLocalPlayer = (PlayerController.IsOwner && PlayerController.isPlayerControlled) && (!PlayerController.IsServer || PlayerController.isHostPlayerObject) || PlayerController.isTestingPlayer;
+				if (_isLocalPlayer) LocalPlayerController = PlayerController;
+			}
 
-			if (_isLocalPlayer) LocalPlayerController = PlayerController;
+			var preloaderSystems = typeof(IControllerSystemPreloader);
+
+			if(TypeCache == null)
+			{
+				TypeCache = new();
+				foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+				{
+					var typeList = assembly.GetTypes().Where(x => x.IsClass && !x.IsAbstract && x.IsSubclassOf(preloaderSystems));
+					if (typeList.Any())
+						TypeCache.AddRange(typeList);
+				}
+			}
+
+
+			var systems = TypeCache;
+			foreach (var system in systems)
+			{
+				if (GetComponent(system) == null)
+				{
+					var obj = gameObject.AddComponent(system) as IControllerSystemPreloader;
+					obj.OnPreload(this, PlayerController);
+				}
+			}
+			
 
 			OnPlayerSpawned?.Invoke();
 			HandleSuitChange();
@@ -190,6 +243,10 @@ namespace LC_CosmicAPI.Game
 
 		private void LateUpdate()
 		{
+			if(IsCosmeticCharacter)
+			{
+				return;
+			}
 			if (LastSuitID != PlayerController.currentSuitID)
 			{
 				LastSuitID = PlayerController.currentSuitID;
@@ -220,10 +277,13 @@ namespace LC_CosmicAPI.Game
 					_ => null,
 				};
 			}
-			else
+			else if(!IsCosmeticCharacter)
 			{
 				if (index != 0) return null;
 				return DeadBody.gameObject.GetComponent<SkinnedMeshRenderer>();
+			} else
+			{
+				return gameObject.transform.Find("LOD" + (index + 1)).gameObject.GetComponent<SkinnedMeshRenderer>();
 			}
 		}
 
@@ -232,7 +292,11 @@ namespace LC_CosmicAPI.Game
 			for (int i = 0; i < LODCount; i++)
 			{
 				var lod = GetLOD(i);
-				if (lod != null) lod.enabled = currentState;
+				if (lod != null)
+				{
+					lod.enabled = currentState;
+					lod.shadowCastingMode = currentState ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+				}
 			}
 		}
 	}
