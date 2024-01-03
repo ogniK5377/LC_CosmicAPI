@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace LC_CosmicAPI.Game
 {
-	internal static class CustomScrapManager
+	internal class CustomScrapManager : IPluginModule
 	{
 		// I needed a way to ensure that custom items don't conflict with other item ids. Load order for plugins can change
 		// items can have minor updates, new content can be added to the game etc. Here's what I came up with.
@@ -22,8 +22,8 @@ namespace LC_CosmicAPI.Game
 		private static List<ICustomScrap> _scrapList = new();
 		private static Dictionary<Level.MoonID, List<int>> _moonScrapLookup = new();
 		private static Dictionary<ulong, int> _hashToItem = new();
-		private static MethodInfo _hashMethodInfo = AccessTools.Method("Unity.Netcode.XXHash:Hash64", new Type[] { typeof(string) });
 		internal static List<ulong> _itemsLeft = new();
+		internal static List<ulong> _itemHashListOrdered = new();
 
 		internal static int CustomItemStartIndex = -1;
 
@@ -57,7 +57,7 @@ namespace LC_CosmicAPI.Game
 		internal static ulong Hash64(string hashString)
 		{
 			// Netcode uses XXhash which works for us
-			return (ulong)_hashMethodInfo.Invoke(null, new object[] { hashString });
+			return Network.Hash64(hashString);
 		}
 
 		internal static bool IsCustomItemFromId(int itemId)
@@ -68,6 +68,12 @@ namespace LC_CosmicAPI.Game
 		internal static ulong HashItem(Item item)
 		{
 			return Hash64(item.itemName);
+		}
+
+		internal static bool DoesItemHashExist(ulong itemHash)
+		{
+			if (itemHash == 0) return false;
+			return _hashToItem.ContainsKey(itemHash);
 		}
 
 		internal static void AddNewScrap(ICustomScrap scrap)
@@ -126,5 +132,14 @@ namespace LC_CosmicAPI.Game
 			}
 		}
 
+		public void OnPluginStart()
+		{
+			Level.OnPlayerConnected += Level_OnPlayerConnected;
+		}
+
+		private void Level_OnPlayerConnected(ulong clientId)
+		{
+			CosmicNetworkComponent.Instance.SyncCustomItemsToClient(CustomItemStartIndex, _itemHashListOrdered.ToArray(), clientId);
+		}
 	}
 }

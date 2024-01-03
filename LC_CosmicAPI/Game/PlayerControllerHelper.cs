@@ -51,7 +51,10 @@ namespace LC_CosmicAPI.Game
 		public ulong SteamID => PlayerController.playerSteamId;
 		
 		// More company cosmetic viewer
-		public bool IsCosmeticCharacter => PlayerController == null && DeadBody == null;
+		public bool IsCosmeticCharacter => PlayerController == null && DeadBody == null && Cosmetics.HasCosmeticApplication;
+		private CosmeticHelper _cosmeticHelper;
+		public CosmeticHelper Cosmetics => _cosmeticHelper;
+		public bool HasCosmeticApplication => _cosmeticHelper != null && _cosmeticHelper.HasCosmeticApplication;
 
 		private bool _isLocalPlayer = false;
 		private int LastSuitID = 0;
@@ -204,8 +207,12 @@ namespace LC_CosmicAPI.Game
 		{
 			PlayerController = GetComponent<PlayerControllerB>();
 			DeadBody = GetComponent<DeadBodyInfo>();
+			if (Plugin.HasMoreCompany)
+				_cosmeticHelper = new(AnimatorObject);
+			else
+				_cosmeticHelper = null;
 
-			if(!IsCosmeticCharacter)
+			if (!IsCosmeticCharacter)
 			{
 				if (IsDead) PlayerController = DeadBody.playerScript;
 				_isLocalPlayer = (PlayerController.IsOwner && PlayerController.isPlayerControlled) && (!PlayerController.IsServer || PlayerController.isHostPlayerObject) || PlayerController.isTestingPlayer;

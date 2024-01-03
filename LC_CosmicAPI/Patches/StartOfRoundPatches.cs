@@ -24,6 +24,7 @@ namespace LC_CosmicAPI.Patches
 
 					if (item == null) continue; // oops
 					StartOfRound.Instance.allItemsList.itemsList.Add(item);
+					CustomScrapManager._itemHashListOrdered.Add(itemHash);
 				}
 				CustomScrapManager._itemsLeft.Clear();
 			}
@@ -31,7 +32,6 @@ namespace LC_CosmicAPI.Patches
 
 		private static void OnLoadShipGrabbableItems()
 		{
-
 			if(!ES3.KeyExists(CustomScrapManager.HashSaveFileKey, GameNetworkManager.Instance.currentSaveFileName))
 			{
 				Plugin.Log.LogDebug("No custom items in save");
@@ -84,13 +84,11 @@ namespace LC_CosmicAPI.Patches
 
 				// Add our item to the total item list
 				StartOfRound.Instance.allItemsList.itemsList.Add(item);
+				CustomScrapManager._itemHashListOrdered.Add(itemHash);
 				CustomScrapManager.MarkHashAsLoaded(itemHash);
 			}
 
 			AddRemainingItems();
-
-
-
 		}
 
 		[HarmonyPatch(typeof(StartOfRound), "LoadShipGrabbableItems")]
@@ -122,12 +120,12 @@ namespace LC_CosmicAPI.Patches
 				Plugin.Log.LogError("Failed to patch LoadShipGrabbableItems");
 		}
 
-		[HarmonyPatch(typeof(StartOfRound), "Start")]
-		[HarmonyPrefix]
-		public static void OnRoundStarted(StartOfRound __instance)
+		[HarmonyPatch(typeof(StartOfRound), "OnClientConnect")]
+		[HarmonyPostfix]
+		public static void OnClientConnectPatch(StartOfRound __instance, ulong clientId)
 		{
-			if (__instance.IsClient)
-				AddRemainingItems();
+			if (!__instance.IsServer) return;
+			Level.InvokeOnPlayerConnected(clientId);
 		}
 
 		public override bool Preload()

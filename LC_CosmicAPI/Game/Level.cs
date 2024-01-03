@@ -54,6 +54,8 @@ namespace LC_CosmicAPI.Game
 
 		// ref SelectableLevel level, int seed, bool isServer
 
+		public delegate void OnPlayerConnectedDelegate(ulong clientId);
+
 		public delegate void OnBeginLoadLevelDelegate(ref SelectableLevel level, int seed, bool isServer);
 		public delegate void OnFinishLoadLevelDelegate(ref SelectableLevel level, int seed, bool isServer);
 
@@ -69,9 +71,13 @@ namespace LC_CosmicAPI.Game
 		public static event Action OnFinishGeneratingLevel;
 		public static event OnSpawnEnemyGameObjectDelegate OnSpawnEnemyGameObject;
 
+		public static event OnPlayerConnectedDelegate OnPlayerConnected;
+
 		public static RoundManager RoundManager => RoundManager.Instance != null ? RoundManager.Instance : UnityEngine.Object.FindObjectOfType<RoundManager>();
 		public static StartOfRound StartOfRound => RoundManager != null ? RoundManager.playersManager : null;
 		public static StartOfRound PlayerManager => StartOfRound;
+
+		public static List<Item> ItemList => StartOfRound.allItemsList.itemsList;
 
 		public static SelectableLevel CurrentSelectableLevel => RoundManager.currentLevel;
 
@@ -90,7 +96,7 @@ namespace LC_CosmicAPI.Game
 		public static GameObject GetSpawnedEnemyObjectFromIndex(int index)
 		{
 			var ai = GetSpawnedEnemyAIFromIndex(index);
-			if(ai == null) return null;
+			if (ai == null) return null;
 			return ai.gameObject;
 		}
 
@@ -117,7 +123,7 @@ namespace LC_CosmicAPI.Game
 
 		internal static void InvokeDungeonPostProcess(bool isPre)
 		{
-			if(isPre) OnBeginDungeonPostProcess?.Invoke();
+			if (isPre) OnBeginDungeonPostProcess?.Invoke();
 			else OnFinishDungeonPostProcess?.Invoke();
 		}
 
@@ -145,14 +151,20 @@ namespace LC_CosmicAPI.Game
 			else OnFinishSpawnScrapInLevel?.Invoke();
 		}
 
+		internal static void InvokeOnPlayerConnected(ulong clientId)
+		{
+			OnPlayerConnected?.Invoke(clientId);
+		}
+
 		internal static void InvokeOnSpawnEnemyGameObject(NetworkObjectReference spawnedEnemyReference, int enemyNumber)
 		{
-			if(_enemySpawnedCallbacks.TryGetValue(enemyNumber, out var delegateList))
+			if (_enemySpawnedCallbacks.TryGetValue(enemyNumber, out var delegateList))
 			{
-				if(delegateList.Count == 0)
+				if (delegateList.Count == 0)
 				{
 					_enemySpawnedCallbacks.Remove(enemyNumber);
-				} else
+				}
+				else
 				{
 					var firstCallback = delegateList.First();
 					delegateList.Remove(firstCallback);
@@ -166,10 +178,10 @@ namespace LC_CosmicAPI.Game
 
 		public static GameObject GetPlayerObject(int playerId)
 		{
-			if(playerId < 0) return null;
+			if (playerId < 0) return null;
 
 			var roundStart = StartOfRound;
-			if(roundStart != null)
+			if (roundStart != null)
 			{
 				if (playerId >= roundStart.allPlayerObjects.Length)
 					return null;
@@ -177,8 +189,8 @@ namespace LC_CosmicAPI.Game
 			}
 
 			var playerScripts = GameObject.FindObjectsOfType<PlayerControllerB>();
-			if(playerScripts.Length == 0) return null;
-			foreach(var playerScript in playerScripts)
+			if (playerScripts.Length == 0) return null;
+			foreach (var playerScript in playerScripts)
 			{
 				if ((int)playerScript.playerClientId == playerId)
 					return playerScript.gameObject;
@@ -189,7 +201,7 @@ namespace LC_CosmicAPI.Game
 		public static PlayerControllerB GetPlayerController(int playerId)
 		{
 			var playerObject = GetPlayerObject(playerId);
-			if(playerObject == null) return null;
+			if (playerObject == null) return null;
 			return playerObject.GetComponent<PlayerControllerB>();
 		}
 

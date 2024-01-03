@@ -77,6 +77,12 @@ namespace LC_CosmicAPI.Game
 
 	public static class Network
 	{
+		private static MethodInfo _hashMethodInfo64 = AccessTools.Method("Unity.Netcode.XXHash:Hash64", new Type[] { typeof(string) });
+		private static MethodInfo _hashMethodInfo32 = AccessTools.Method("Unity.Netcode.XXHash:Hash32", new Type[] { typeof(string) });
+
+		internal static ulong Hash64(string hashString) => (ulong)_hashMethodInfo64.Invoke(null, new object[] { hashString });
+		internal static uint Hash32(string hashString) => (uint)_hashMethodInfo32.Invoke(null, new object[] { hashString });
+
 		public delegate void OnGameNetworkManagerStartDelegate(GameNetworkManager gameNetworkManager, NetworkManager networkManager);
 		public static event OnGameNetworkManagerStartDelegate OnGameNetworkManagerStart;
 
@@ -145,7 +151,7 @@ namespace LC_CosmicAPI.Game
 			return gameRef;
 		}
 
-		public static GameObject NetworkInstantiate<T>(Vector3 position, Quaternion rotation, Transform parent, bool destroyWithScene = false, ulong? owner = null)
+		public static GameObject Instantiate<T>(Vector3 position, Quaternion rotation, Transform parent, bool destroyWithScene = false, ulong? owner = null)
 		{
 			var gameRef = UnityEngine.Object.Instantiate(INetworkPrefabTypeFactory<T>.NetworkPrefab, position, rotation, parent);
 			if (owner != null)
@@ -164,6 +170,21 @@ namespace LC_CosmicAPI.Game
 
 		internal static void SetNetworkPrefab(Type type, GameObject prefab)
 		{
+			var networkObject = prefab.GetComponent<NetworkObject>();
+			if (networkObject == null) return;
+
+			var fieldInfo = AccessTools.Field(typeof(NetworkObject), "GlobalObjectIdHash");
+
+			var currentHash = (uint)fieldInfo.GetValue(networkObject);
+			if(currentHash == 0)
+			{
+				// Generate new hash
+				Plugin.Log.LogWarning($"Hash for {type.FullName} is 0! Generating a new hash");
+				uint objectHash = Hash32(type.FullName + "_" + type.Assembly.FullName);
+				fieldInfo.SetValue(networkObject, objectHash);
+			}
+
+
 			var property = typeof(INetworkPrefabTypeFactory<>).MakeGenericType(type).GetProperty("NetworkPrefab", BindingFlags.Static | BindingFlags.Public);
 			property?.SetValue(null, prefab);
 		}
@@ -173,24 +194,27 @@ namespace LC_CosmicAPI.Game
 			if (APINetworkPrefab == null) return false;
 			//if (assembly == null) assembly = Assembly.GetCallingAssembly();
 
+			Plugin.Log.LogWarning($"NetworkInitialize");
 			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
 			{
-				var types = assembly.GetTypes().Where(x => x.IsClass && x.BaseType != null && x.BaseType.IsGenericType && x.BaseType.GetGenericTypeDefinition() == typeof(INetworkable<>));
+
+				Plugin.Log.LogWarning($"checking assembly {assembly.FullName}");
+				var types = assembly.GetTypes().Where(x => x.IsClass && x.GetInterface(typeof(INetworkable<>).Name) != null);
 				if (types.Any())
 				{
 					foreach (var type in types)
 					{
+						Plugin.Log.LogWarning($"Setting up network prefab {type.FullName}");
 						var prefab = GameObject.Instantiate(APINetworkPrefab);
 						prefab.hideFlags = HideFlags.HideAndDontSave;
 						var networkable = Activator.CreateInstance(type);
 						var setupMethod = type.GetMethod("SetupNetworkablePrefab");
 						var setupResult = setupMethod?.Invoke(networkable, new object[] { prefab }) is bool;
-
-						SetNetworkPrefab(type, prefab);
-						/*var setMethod = type.BaseType.GetMethod("set_NetworkPrefab", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 						if (setupResult)
-							setMethod?.Invoke(null, new object[] { prefab });*/
-						_networkObjectsToRegister.Add(prefab);
+						{
+							SetNetworkPrefab(type, prefab);
+							_networkObjectsToRegister.Add(prefab);
+						}
 					}
 				}
 			}
