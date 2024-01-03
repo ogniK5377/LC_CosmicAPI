@@ -12,7 +12,14 @@ namespace LC_CosmicAPI.Game
 
 		public delegate void PlaceShipObjectDelegate(Vector3 placementPosition, Vector3 placementRotation, PlaceableShipObject placeableObject);
 
+		/// <summary>
+		/// Event is called when an unlockable is placed on the ship
+		/// </summary>
 		public static event PlaceShipObjectDelegate OnBeginPlaceShipObject;
+
+		/// <summary>
+		/// Event is called after an unlockable is placed on the ship
+		/// </summary>
 		public static event PlaceShipObjectDelegate OnFinishPlaceShipObject;
 
 		internal static void InvokePlaceShipObject(bool isPre, Vector3 placementPosition, Vector3 placementRotation, PlaceableShipObject placeableObject)

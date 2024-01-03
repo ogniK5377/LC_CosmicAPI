@@ -84,8 +84,15 @@ namespace LC_CosmicAPI.Game
 		internal static uint Hash32(string hashString) => (uint)_hashMethodInfo32.Invoke(null, new object[] { hashString });
 
 		public delegate void OnGameNetworkManagerStartDelegate(GameNetworkManager gameNetworkManager, NetworkManager networkManager);
+		
+		/// <summary>
+		/// Event which is triggered when the GameNetworkManager starts
+		/// </summary>
 		public static event OnGameNetworkManagerStartDelegate OnGameNetworkManagerStart;
 
+		/// <summary>
+		/// Are we running within the server?
+		/// </summary>
 		public static bool IsServer => Level.RoundManager.IsServer;
 
 		private static bool _hasStarted = false;
@@ -105,6 +112,12 @@ namespace LC_CosmicAPI.Game
 			CustomScrapManager.RegisterScrap();
 		}
 
+		/// <summary>
+		/// Register a network prefab if the game manager has already started.
+		/// If the network manager hasn't started, it will be stored to be automatically
+		/// registered later
+		/// </summary>
+		/// <param name="prefab"></param>
 		public static void RegisterNetworkPrefab(GameObject prefab)
 		{
 			if (!_hasStarted) _networkObjectsToRegister.Add(prefab);

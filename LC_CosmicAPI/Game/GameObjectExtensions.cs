@@ -21,6 +21,12 @@ namespace LC_CosmicAPI.Game
 			return list;
 		}
 
+		/// <summary>
+		/// Get a list of every child within the current parent
+		/// </summary>
+		/// <param name="parent">Parent to search</param>
+		/// <param name="ignoreList">List of child names to ignore. If this is null, all children will be included</param>
+		/// <returns></returns>
 		public static List<GameObject> GetEveryChild(this GameObject parent, string[] ignoreList = null, List<GameObject> list = null)
 		{
 			return GetEveryChildFromTransform(parent.transform, ignoreList, list);

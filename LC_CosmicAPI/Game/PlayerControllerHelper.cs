@@ -25,35 +25,98 @@ namespace LC_CosmicAPI.Game
 	[DefaultExecutionOrder(-2)]
 	public class ControllerHelper : MonoBehaviour
 	{
-		public static StartOfRound RoundStart => StartOfRound.Instance != null ? StartOfRound.Instance : UnityEngine.Object.FindObjectOfType<StartOfRound>();
-		public static RoundManager Round => RoundManager.Instance != null ? RoundManager.Instance : UnityEngine.Object.FindObjectOfType<RoundManager>();
-
+		/// <summary>
+		/// Get current player controller
+		/// </summary>
 		public PlayerControllerB PlayerController;
-		public PlayerControllerB LocalPlayerController;
-		public DeadBodyInfo DeadBody;
-		public GameObject PlayerGameObject => PlayerController.gameObject;
-		public GameObject LocalPlayerGameObject => LocalPlayerController.gameObject;
 
+		/// <summary>
+		/// The local player controller
+		/// </summary>
+		public static PlayerControllerB LocalPlayerController;
+
+		/// <summary>
+		/// The players dead body info
+		/// </summary>
+		public DeadBodyInfo DeadBody;
+
+		/// <summary>
+		/// The current players game object
+		/// </summary>
+		public GameObject PlayerGameObject => PlayerController.gameObject;
+
+		/// <summary>
+		/// The local players game object
+		/// </summary>
+		public static GameObject LocalPlayerGameObject => LocalPlayerController.gameObject;
+
+		/// <summary>
+		/// The local item transform. This is where players hold items on their view model
+		/// </summary>
 		public Transform LocalItemTransform => PlayerController.localItemHolder;
+
+		/// <summary>
+		/// The server item transform. This is where players hold items for everyone else
+		/// </summary>
 		public Transform ServerItemTransform => PlayerController.serverItemHolder;
 
+		/// <summary>
+		/// Returns the current Animator or SkinnedMeshRenderer game object
+		/// </summary>
 		public GameObject AnimatorObject => !IsCosmeticCharacter ? (IsAlive ? 
 			PlayerController.playerBodyAnimator.gameObject : 
 			DeadBody.GetComponent<SkinnedMeshRenderer>().rootBone.gameObject) :
 			GetComponentInChildren<Animator>().gameObject;
+
+		/// <summary>
+		/// Gets the current players object ID
+		/// </summary>
 		public int PlayerObjectID => IsAlive ? (int)PlayerController.playerClientId : DeadBody.playerObjectId;
+		
+		/// <summary>
+		/// Returns the amount of LODs the player has
+		/// </summary>
 		public int LODCount => (IsAlive || IsCosmeticCharacter) ? 3 : 1;
+
+		/// <summary>
+		/// Get the primary LOD SkinnedMeshRenderer
+		/// </summary>
 		public SkinnedMeshRenderer PrimaryLOD => IsAlive ? PlayerController.thisPlayerModel : DeadBody.gameObject.GetComponent<SkinnedMeshRenderer>();
 
+		/// <summary>
+		/// The current SuitID the player is wearing
+		/// </summary>
 		public int SuitID => PlayerController.currentSuitID;
+
+		/// <summary>
+		/// The current Material of the suit the player is wearing
+		/// </summary>
 		public Material SuitMaterial => StartOfRound.Instance.unlockablesList.unlockables[SuitID].suitMaterial;
-		public ulong NetworkID => PlayerController.actualClientId;
-		public ulong SteamID => PlayerController.playerSteamId;
 		
-		// More company cosmetic viewer
+		/// <summary>
+		/// The current network ID of the player or the client id. This is used for networking!
+		/// </summary>
+		public ulong NetworkID => PlayerController.actualClientId;
+		
+		/// <summary>
+		/// The clients current SteamID
+		/// </summary>
+		public ulong SteamID => PlayerController.playerSteamId;
+
+		/// <summary>
+		/// Are we attached to an object which has no controller or dead body and MoreCompany is installed
+		/// </summary>
 		public bool IsCosmeticCharacter => PlayerController == null && DeadBody == null && Cosmetics.HasCosmeticApplication;
 		private CosmeticHelper _cosmeticHelper;
+		
+		/// <summary>
+		/// Returns the current cosmetic helper for MoreCompany cosmetics. This is null if MoreCompany is not installed
+		/// </summary>
 		public CosmeticHelper Cosmetics => _cosmeticHelper;
+
+		/// <summary>
+		/// Checks if our object can have cosmetics and MoreCompany is installed
+		/// </summary>
 		public bool HasCosmeticApplication => _cosmeticHelper != null && _cosmeticHelper.HasCosmeticApplication;
 
 		private bool _isLocalPlayer = false;
@@ -62,10 +125,24 @@ namespace LC_CosmicAPI.Game
 
 		private static MethodInfo CheckConditionsForEmote = typeof(PlayerControllerB).GetMethod("CheckConditionsForEmote", BindingFlags.NonPublic);
 
+		/// <summary>
+		/// Check if the player can Emote
+		/// </summary>
 		public bool CanPerformEmote => CheckConditionsForEmote?.Invoke(PlayerController, null) is bool && !PlayerController.performingEmote;
 
+		/// <summary>
+		/// Check if the player is dead
+		/// </summary>
 		public bool IsDead => DeadBody != null && !IsCosmeticCharacter;
+
+		/// <summary>
+		/// Check if the player is alive
+		/// </summary>
 		public bool IsAlive => !IsDead && !IsCosmeticCharacter;
+
+		/// <summary>
+		/// Check if we're currently looking at the localplayer
+		/// </summary>
 		public bool LocalPlayer => _isLocalPlayer;
 
 		public delegate bool OnDeadBodySpawnDelegate(DeadBodyInfo deadBodyInfo);
@@ -75,21 +152,59 @@ namespace LC_CosmicAPI.Game
 		public delegate void OnSuitChangedDelegate(int suitId, Material suitMaterial);
 		public delegate void SteamIDUpdatedDelegate(ulong steamId);
 
-
+		/// <summary>
+		/// Event is fired when the player changes their suit
+		/// </summary>
 		public event OnSuitChangedDelegate OnSuitChanged;
+
+		/// <summary>
+		/// Event is fired the player is spawned
+		/// </summary>
 		public event Action OnPlayerSpawned;
+
+		/// <summary>
+		/// Event is fired then the player object is destroyed
+		/// </summary>
 		public event Action OnPlayerDestroy;
+
+		/// <summary>
+		/// Event is fired when the player model is set to be active or disabled
+		/// </summary>
 		public event UpdatePlayerModelEnabledDelegate UpdatePlayerModelEnabled;
+
+		/// <summary>
+		/// Event is fired when the viewmodel is set to be active or disabled
+		/// </summary>
 		public event UpdatePlayerModelArmsEnabledDelegate UpdatePlayerModelArmsEnabled;
+
+		/// <summary>
+		/// Event is fired when the player animator is spawned
+		/// </summary>
 		public event Action OnSpawnPlayerAnimator;
 
+		/// <summary>
+		/// Event is fired the dead body is spawned
+		/// </summary>
 		public event OnDeadBodySpawnDelegate OnDeadBodySpawn;
+
+		/// <summary>
+		/// Event is fired when the dead bodies active state is changed
+		/// </summary>
 		public event UpdateDeadBodyEnableDelegate UpdateDeadBodyEnable;
+
+		/// <summary>
+		/// Event is fired when the steam ID is changed. This is useful for running
+		/// SteamID restricted routines on a player.
+		/// </summary>
 		public event SteamIDUpdatedDelegate SteamIDUpdated;
 
 		private Dictionary<string, GameObject> _boneCache = new();
 
-
+		/// <summary>
+		/// Find a bone within the player with a specific name
+		/// </summary>
+		/// <param name="name">Bone name</param>
+		/// <returns>Bones gameObject</returns>
 		public GameObject GetBoneFromName(string name)
 		{
 			if (_boneCache.TryGetValue(name, out var cachedBone))
@@ -109,14 +224,24 @@ namespace LC_CosmicAPI.Game
 			return _boneCache[name];
 		}
 
+		/// <summary>
+		/// Get a player controller from a given player id
+		/// </summary>
+		/// <param name="playerId">Player ID</param>
+		/// <returns>PlayerControllerB</returns>
 		public static PlayerControllerB GetControllerFromPlayerID(int playerId)
 		{
-			if (RoundStart == null) return null;
+			if (Level.StartOfRound == null) return null;
 			if (playerId < 0) return null;
-			if (playerId >= RoundStart.allPlayerScripts.Length) return null;
-			return RoundStart.allPlayerScripts[playerId];
+			if (playerId >= Level.StartOfRound.allPlayerScripts.Length) return null;
+			return Level.StartOfRound.allPlayerScripts[playerId];
 		}
 
+		/// <summary>
+		/// Get a player game object from a given player id
+		/// </summary>
+		/// <param name="playerId">Player ID</param>
+		/// <returns>Player GameObject</returns>
 		public static GameObject GetPlayerObjectFromPlayerID(int playerId)
 		{
 			var controller = GetControllerFromPlayerID(playerId);
@@ -124,6 +249,11 @@ namespace LC_CosmicAPI.Game
 			return controller.gameObject;
 		}
 
+		/// <summary>
+		/// Get the ControllerHelper from a player object
+		/// </summary>
+		/// <param name="obj">PlayerObject</param>
+		/// <returns>ControllerHelper</returns>
 		public static ControllerHelper GetHelperFromObject(GameObject obj)
 		{
 			ControllerHelper helper = null;
@@ -138,6 +268,11 @@ namespace LC_CosmicAPI.Game
 			return helper;
 		}
 
+		/// <summary>
+		/// Get the ControllerHelper from a given player id
+		/// </summary>
+		/// <param name="playerId">Player ID</param>
+		/// <returns>ControllerHelper</returns>
 		public static ControllerHelper GetHelperFromPlayerId(int playerId)
 		{
 			var playerObject = GetControllerFromPlayerID(playerId);
@@ -157,7 +292,7 @@ namespace LC_CosmicAPI.Game
 			OnSuitChanged?.Invoke(PlayerController.currentSuitID, material);
 		}
 
-		public bool SpawnDeadBodyEv(DeadBodyInfo deadBodyInfo)
+		internal bool SpawnDeadBodyEv(DeadBodyInfo deadBodyInfo)
 		{
 			if (OnDeadBodySpawn == null) return false;
 			bool wasAnyTrue = false;
@@ -167,7 +302,7 @@ namespace LC_CosmicAPI.Game
 			}
 			return wasAnyTrue;
 		}
-		public bool DeadBodyUpdateEv(DeadBodyInfo deadBodyInfo, bool setActive)
+		internal bool DeadBodyUpdateEv(DeadBodyInfo deadBodyInfo, bool setActive)
 		{
 			if (UpdateDeadBodyEnable == null) return false;
 			bool wasAnyTrue = false;
@@ -177,7 +312,7 @@ namespace LC_CosmicAPI.Game
 		}
 
 
-		public bool UpdateModelState(bool newState, bool? disableArms = null)
+		internal bool UpdateModelState(bool newState, bool? disableArms = null)
 		{
 			if (UpdatePlayerModelEnabled == null && UpdatePlayerModelArmsEnabled == null) return false;
 
@@ -196,7 +331,7 @@ namespace LC_CosmicAPI.Game
 			return wasAnyTrue;
 		}
 
-		public void SpawnPlayerAnimatorEv()
+		internal void SpawnPlayerAnimatorEv()
 		{
 			OnSpawnPlayerAnimator?.Invoke();
 		}
@@ -271,6 +406,11 @@ namespace LC_CosmicAPI.Game
 			OnPlayerDestroy?.Invoke();
 		}
 
+		/// <summary>
+		/// Get an LOD from a given index
+		/// </summary>
+		/// <param name="index">LOD index</param>
+		/// <returns>SkinnedMeshRenderer of the given LOD index</returns>
 		public SkinnedMeshRenderer GetLOD(int index)
 		{
 			if (index >= LODCount || index < 0) return null;
@@ -294,6 +434,10 @@ namespace LC_CosmicAPI.Game
 			}
 		}
 
+		/// <summary>
+		/// Sets all of the LODs active and shadowcasting modes 
+		/// </summary>
+		/// <param name="currentState"></param>
 		public void SetModelLODState(bool currentState)
 		{
 			for (int i = 0; i < LODCount; i++)
