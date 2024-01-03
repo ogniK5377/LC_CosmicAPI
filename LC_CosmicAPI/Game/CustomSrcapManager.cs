@@ -54,12 +54,6 @@ namespace LC_CosmicAPI.Game
 			}
 		}
 
-		internal static ulong Hash64(string hashString)
-		{
-			// Netcode uses XXhash which works for us
-			return Network.Hash64(hashString);
-		}
-
 		internal static bool IsCustomItemFromId(int itemId)
 		{
 			return itemId >= CustomItemStartIndex && itemId < StartOfRound.Instance.allItemsList.itemsList.Count;
@@ -67,7 +61,7 @@ namespace LC_CosmicAPI.Game
 
 		internal static ulong HashItem(Item item)
 		{
-			return Hash64(item.itemName);
+			return Network.Hash64(item.itemName);
 		}
 
 		internal static bool DoesItemHashExist(ulong itemHash)
