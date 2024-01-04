@@ -17,7 +17,7 @@ namespace LC_CosmicAPI.Game
 		private static List<ICustomDungeon> _dungeonList = new();
 		private static Dictionary<Level.MoonID, List<IntWithRarity>> _moonToDungeonLookup = new();
 
-		private static bool DEBUG_ONLY_CUSTOM = true;
+		private static bool DEBUG_ONLY_CUSTOM = false;
 		private static int? FLOW_COUNT = null;
 		internal static void AddNewDungeon(ICustomDungeon dungeon)
 		{
