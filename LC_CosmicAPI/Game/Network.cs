@@ -207,11 +207,8 @@ namespace LC_CosmicAPI.Game
 			if (APINetworkPrefab == null) return false;
 			//if (assembly == null) assembly = Assembly.GetCallingAssembly();
 
-			Plugin.Log.LogWarning($"NetworkInitialize");
 			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
 			{
-
-				Plugin.Log.LogWarning($"checking assembly {assembly.FullName}");
 				var types = assembly.GetTypes().Where(x => x.IsClass && x.GetInterface(typeof(INetworkable<>).Name) != null);
 				if (types.Any())
 				{
