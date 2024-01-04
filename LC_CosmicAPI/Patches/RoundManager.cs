@@ -48,6 +48,13 @@ namespace LC_CosmicAPI.Patches
 			Game.Level.InvokeOnFinishGeneratingLevel();
 		}
 
+		[HarmonyPatch(typeof(RoundManager), "FinishGeneratingLevel")]
+		[HarmonyPostfix]
+		public static void FinishGeneratingLevelPostfix(ref RoundManager __instance)
+		{
+			Game.Level.InvokeOnFinishGeneratingLevelPostfix();
+		}
+
 		[HarmonyPatch(typeof(RoundManager), "FinishGeneratingNewLevelClientRpc")]
 		[HarmonyPostfix]
 		public static void FinishGeneratingNewLevelClientRpc(ref RoundManager __instance)
@@ -104,6 +111,13 @@ namespace LC_CosmicAPI.Patches
 		public static void SpawnEnemyGameObject(ref RoundManager __instance, NetworkObjectReference __result, Vector3 spawnPosition, float yRot, int enemyNumber, EnemyType enemyType = null)
 		{
 			Game.Level.InvokeOnSpawnEnemyGameObject(__result, enemyNumber);
+		}
+
+		[HarmonyPatch(typeof(RoundManager), "Start")]
+		[HarmonyPostfix]
+		public static void RoundManagerStart(ref RoundManager __instance)
+		{
+			Game.Level.InvokeOnRoundManagerStart(ref __instance);
 		}
 
 		public override bool Preload()

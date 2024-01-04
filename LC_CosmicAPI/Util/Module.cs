@@ -56,7 +56,9 @@ namespace LC_CosmicAPI.Util
 			// Lethal patches
 			(x.IsClass && !x.IsAbstract && x.IsSubclassOf(typeof(ILethalPatch))) ||
 			// Custom scrap
-			((x.IsClass && !x.IsAbstract && x.IsSubclassOf(typeof(ICustomScrap))))
+			((x.IsClass && !x.IsAbstract && x.IsSubclassOf(typeof(ICustomScrap)))) ||
+			// Custom dungeons
+			((x.IsClass && !x.IsAbstract && x.IsSubclassOf(typeof(ICustomDungeon))))
 			);
 
 			foreach (var type in typesToHandle)
@@ -69,9 +71,13 @@ namespace LC_CosmicAPI.Util
 				{
 					InvokeLethalPatch(type, harmony, config);
 				}
-				else if(type.IsSubclassOf(typeof(ICustomScrap)))
+				else if (type.IsSubclassOf(typeof(ICustomScrap)))
 				{
 					InvokeCustomScrap(type);
+				}
+				else if (type.IsSubclassOf(typeof(ICustomDungeon)))
+				{
+					InvokeCustomDungeon(type);
 				}
 			}
 
@@ -105,6 +111,13 @@ namespace LC_CosmicAPI.Util
 			Plugin.Log.LogInfo($"Setting up custom scrap {type.FullName}");
 			ICustomScrap scrap = Activator.CreateInstance(type) as ICustomScrap;
 			CustomScrapManager.AddNewScrap(scrap);
+		}
+
+		internal static void InvokeCustomDungeon(Type type)
+		{
+			Plugin.Log.LogInfo($"Setting up custom dungeon {type.FullName}");
+			ICustomDungeon dungeon = Activator.CreateInstance(type) as ICustomDungeon;
+			CustomDungeonManager.AddNewDungeon(dungeon);
 		}
 
 	}

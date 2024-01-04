@@ -52,6 +52,7 @@ namespace LC_CosmicAPI.Game
 			FinalMoon = Titan,
 		}
 
+		public delegate void OnRoundManagerStartDelegate(ref RoundManager roundManager);
 		public delegate void SyncScrapValuesDelegate(NetworkObjectReference[] spawnedScrap, int[] allScrapValue);
 		public delegate void OnSpawnEnemyGameObjectDelegate(NetworkObjectReference spawnedEnemyReference, int enemyNumber);
 
@@ -115,6 +116,11 @@ namespace LC_CosmicAPI.Game
 		/// Event is called when the client connects to the server
 		/// </summary>
 		public static event OnPlayerConnectedDelegate OnPlayerConnected;
+
+		/// <summary>
+		/// Event is called when the round manager is first started
+		/// </summary>
+		public static event OnRoundManagerStartDelegate OnRoundManagerStart;
 
 		/// <summary>
 		/// Fetch the current RoundManager instance
@@ -236,6 +242,11 @@ namespace LC_CosmicAPI.Game
 			CustomScrapManager.OnFishedGeneratingLevel();
 		}
 
+		internal static void InvokeOnFinishGeneratingLevelPostfix()
+		{
+
+		}
+
 		internal static void InvokeOnSpawnScrapInLevel(bool isPre)
 		{
 			if (isPre) OnBeginSpawnScrapInLevel?.Invoke();
@@ -265,6 +276,11 @@ namespace LC_CosmicAPI.Game
 				}
 			}
 			OnSpawnEnemyGameObject?.Invoke(spawnedEnemyReference, enemyNumber);
+		}
+
+		internal static void InvokeOnRoundManagerStart(ref RoundManager __roundmanager)
+		{
+			OnRoundManagerStart?.Invoke(ref __roundmanager);
 		}
 
 		/// <summary>
