@@ -17,7 +17,10 @@ namespace LC_CosmicAPI.Game
 		{
 			Default = 1 << 0,
 			Transparent = 1 << 1,
+			IgnoreRaycase = 1 << 2,
 			Player = 1 << 3,
+			Water = 1 << 4,
+			UI = 1 << 5,
 			Props = 1<< 6,
 			HelmetVisor = 1 << 7,
 			Room = 1 << 8,
