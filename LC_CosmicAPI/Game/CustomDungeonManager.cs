@@ -1,4 +1,5 @@
 ﻿using DunGen;
+using DunGen.Graph;
 using HarmonyLib;
 using LC_CosmicAPI.Util;
 using System;
@@ -30,6 +31,44 @@ namespace LC_CosmicAPI.Game
 			Level.OnBeginLoadLevel += Level_OnBeginLoadLevel;
 		}
 
+		private void DoAssetReplacementOnTiles(ref DungeonFlow dungeonFlow)
+		{
+			NetworkManager networkManager = UnityEngine.Object.FindObjectOfType<NetworkManager>();
+			foreach(var node in dungeonFlow.Nodes)
+			{
+				foreach(var tileset in node.TileSets)
+				{
+					foreach(var tile in tileset.TileWeights.Weights)
+					{
+						// Map objects to replace
+						var mapObjects = tile.Value.GetComponentsInChildren<RandomMapObject>(true);
+
+						// Sync objects to replace
+						var syncedObjects = tile.Value.GetComponentsInChildren<SpawnSyncedObject>(true);
+
+						for (int mapObjectIdx = 0; mapObjectIdx < mapObjects.Length; mapObjectIdx++)
+						{
+							for (int i = 0; i < mapObjects[mapObjectIdx].spawnablePrefabs.Count; i++)
+							{
+								var prefab = Network.GetNetworkPrefabFromName(mapObjects[mapObjectIdx].spawnablePrefabs[i].name);
+								if (prefab == null) continue;
+								Plugin.Log.LogDebug($"Doing RandomMapObject replacement for {prefab.Prefab.name}");
+								mapObjects[mapObjectIdx].spawnablePrefabs[i] = prefab.Prefab;
+							}
+						}
+
+						for (int i = 0; i < syncedObjects.Length; i++)
+						{
+							var prefab = Network.GetNetworkPrefabFromName(syncedObjects[i].spawnPrefab.name);
+							if (prefab == null) continue;
+							Plugin.Log.LogDebug($"Doing RandomMapObject SpawnSyncedObject for {prefab.Prefab.name}");
+							syncedObjects[i].spawnPrefab = prefab.Prefab;
+						}
+					}
+				}
+			}
+		}
+
 		private void Level_OnRoundManagerStart(ref RoundManager roundManager)
 		{
 			if (!FLOW_COUNT.HasValue) FLOW_COUNT = roundManager.dungeonFlowTypes.Length;
@@ -38,6 +77,8 @@ namespace LC_CosmicAPI.Game
 				int currentDungeonCount = roundManager.dungeonFlowTypes.Length;
 
 				var flowType = dungeon.LoadDungeonFlow();
+				DoAssetReplacementOnTiles(ref flowType);
+
 				Level.RoundManager.dungeonFlowTypes = Level.RoundManager.dungeonFlowTypes.AddToArray(flowType);
 				dungeon.FlowIndex = currentDungeonCount;
 

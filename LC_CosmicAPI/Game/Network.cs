@@ -1,4 +1,5 @@
 ﻿using BepInEx.Bootstrap;
+using Discord;
 using HarmonyLib;
 using LC_CosmicAPI.Util;
 using System;
@@ -79,11 +80,12 @@ namespace LC_CosmicAPI.Game
 	{
 		private static MethodInfo _hashMethodInfo64 = AccessTools.Method("Unity.Netcode.XXHash:Hash64", new Type[] { typeof(string) });
 		private static MethodInfo _hashMethodInfo32 = AccessTools.Method("Unity.Netcode.XXHash:Hash32", new Type[] { typeof(string) });
+		internal static Dictionary<string, NetworkPrefab> _networkPrefabCache = new();
 
 		internal static ulong Hash64(string hashString) => (ulong)_hashMethodInfo64.Invoke(null, new object[] { hashString });
 		internal static uint Hash32(string hashString) => (uint)_hashMethodInfo32.Invoke(null, new object[] { hashString });
 
-		public delegate void OnGameNetworkManagerStartDelegate(GameNetworkManager gameNetworkManager, NetworkManager networkManager);
+		public delegate void OnGameNetworkManagerStartDelegate(GameNetworkManager gameNetworkManager, Unity.Netcode.NetworkManager networkManager);
 		
 		/// <summary>
 		/// Event which is triggered when the GameNetworkManager starts
@@ -98,9 +100,25 @@ namespace LC_CosmicAPI.Game
 		private static bool _hasStarted = false;
 		private static readonly List<GameObject> _networkObjectsToRegister = new();
 		internal static GameObject APINetworkPrefab = null;
+
+		public static NetworkPrefab GetNetworkPrefabFromName(string name)
+		{
+			if(name.StartsWith("COSMICREPLACE_")) name = name[14..];
+			if(_networkPrefabCache.TryGetValue(name, out NetworkPrefab prefab)) { return prefab; }
+			return null;
+		}
+
 		internal static void InvokeGameManagerStart(GameNetworkManager instance)
 		{
-			var netManager = instance.GetComponent<NetworkManager>();
+			var netManager = instance.GetComponent<Unity.Netcode.NetworkManager>();
+
+			var currentNetworkPrefabs = netManager.NetworkConfig.Prefabs.Prefabs;
+			foreach (var prefab in currentNetworkPrefabs)
+			{
+				if(prefab == null || prefab.Prefab == null) continue;
+				_networkPrefabCache[prefab.Prefab.name] = prefab;
+			}
+
 			NetworkInitialize();
 			foreach (var netObj in _networkObjectsToRegister)
 			{
@@ -121,7 +139,7 @@ namespace LC_CosmicAPI.Game
 		public static void RegisterNetworkPrefab(GameObject prefab)
 		{
 			if (!_hasStarted) _networkObjectsToRegister.Add(prefab);
-			else GameNetworkManager.Instance.GetComponent<NetworkManager>().AddNetworkPrefab(prefab);
+			else GameNetworkManager.Instance.GetComponent<Unity.Netcode.NetworkManager>().AddNetworkPrefab(prefab);
 		}
 
 		public static GameObject Instantiate<T>(bool destroyWithScene = false, ulong? owner = null)
