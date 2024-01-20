@@ -77,6 +77,10 @@ namespace LC_CosmicAPI.Game
 
 			var bundleFileName = GetBundleFilename(bundleName);
 			var bundlePath = Path.Combine(Util.Module.GetPluginDir(assembly), "CosmicBundles", bundleFileName);
+			if(!File.Exists(bundlePath) && File.Exists(bundlePath + ".cosmicbundle"))
+			{
+				bundlePath += ".cosmicbundle";
+			}
 			var bundle = AssetBundle.LoadFromFile(bundlePath);
 			if (bundle == null) throw new FileNotFoundException($"Failed to find bundle {bundleFileName}");
 
