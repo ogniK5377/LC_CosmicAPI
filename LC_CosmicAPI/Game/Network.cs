@@ -227,24 +227,32 @@ namespace LC_CosmicAPI.Game
 
 			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
 			{
-				var types = assembly.GetTypes().Where(x => x.IsClass && x.GetInterface(typeof(INetworkable<>).Name) != null);
-				if (types.Any())
+				try
 				{
-					foreach (var type in types)
+					var types = assembly.GetTypes().Where(x => x.IsClass && x.GetInterface(typeof(INetworkable<>).Name) != null);
+					if (types.Any())
 					{
-						Plugin.Log.LogWarning($"Setting up network prefab {type.FullName}");
-						var prefab = GameObject.Instantiate(APINetworkPrefab);
-						prefab.hideFlags = HideFlags.HideAndDontSave;
-						var networkable = Activator.CreateInstance(type);
-						var setupMethod = type.GetMethod("SetupNetworkablePrefab");
-						var setupResult = setupMethod?.Invoke(networkable, new object[] { prefab }) is bool;
-						if (setupResult)
+						foreach (var type in types)
 						{
-							SetNetworkPrefab(type, prefab);
-							_networkObjectsToRegister.Add(prefab);
+							Plugin.Log.LogWarning($"Setting up network prefab {type.FullName}");
+							var prefab = GameObject.Instantiate(APINetworkPrefab);
+							prefab.hideFlags = HideFlags.HideAndDontSave;
+							var networkable = Activator.CreateInstance(type);
+							var setupMethod = type.GetMethod("SetupNetworkablePrefab");
+							var setupResult = setupMethod?.Invoke(networkable, new object[] { prefab }) is bool;
+							if (setupResult)
+							{
+								SetNetworkPrefab(type, prefab);
+								_networkObjectsToRegister.Add(prefab);
+							}
 						}
 					}
 				}
+				catch(Exception ex)
+				{
+					Plugin.Log.LogError(ex);
+				}
+				
 			}
 
 			return true;

@@ -361,9 +361,16 @@ namespace LC_CosmicAPI.Game
 				TypeCache = new();
 				foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
 				{
-					var typeList = assembly.GetTypes().Where(x => x.IsClass && !x.IsAbstract && x.IsSubclassOf(preloaderSystems));
-					if (typeList.Any())
-						TypeCache.AddRange(typeList);
+					try
+					{
+						var typeList = assembly.GetTypes().Where(x => x.IsClass && !x.IsAbstract && x.IsSubclassOf(preloaderSystems));
+						if (typeList.Any())
+							TypeCache.AddRange(typeList);
+					}
+					catch(Exception ex)
+					{
+						Plugin.Log.LogError(ex);
+					}
 				}
 			}
 
