@@ -33,14 +33,12 @@ namespace LC_CosmicAPI.Game
 
 		private void DoAssetReplacementOnTiles(ref DungeonFlow dungeonFlow)
 		{
-			NetworkManager networkManager = UnityEngine.Object.FindObjectOfType<NetworkManager>();
 			foreach(var node in dungeonFlow.Nodes)
 			{
 				foreach(var tileset in node.TileSets)
 				{
-					foreach(var tile in tileset.TileWeights.Weights)
+					foreach (var tile in tileset.TileWeights.Weights)
 					{
-						// Map objects to replace
 						var mapObjects = tile.Value.GetComponentsInChildren<RandomMapObject>(true);
 
 						// Sync objects to replace
@@ -52,7 +50,7 @@ namespace LC_CosmicAPI.Game
 							{
 								var prefab = Network.GetNetworkPrefabFromName(mapObjects[mapObjectIdx].spawnablePrefabs[i].name);
 								if (prefab == null) continue;
-								Plugin.Log.LogDebug($"Doing RandomMapObject replacement for {prefab.Prefab.name}");
+								Plugin.Log.LogInfo($"Doing RandomMapObject prefab replacement for {prefab.Prefab.name}");
 								mapObjects[mapObjectIdx].spawnablePrefabs[i] = prefab.Prefab;
 							}
 						}
@@ -61,7 +59,7 @@ namespace LC_CosmicAPI.Game
 						{
 							var prefab = Network.GetNetworkPrefabFromName(syncedObjects[i].spawnPrefab.name);
 							if (prefab == null) continue;
-							Plugin.Log.LogDebug($"Doing RandomMapObject SpawnSyncedObject for {prefab.Prefab.name}");
+							Plugin.Log.LogInfo($"Doing SpawnSyncedObject prefab replacement for  {prefab.Prefab.name}");
 							syncedObjects[i].spawnPrefab = prefab.Prefab;
 						}
 					}
